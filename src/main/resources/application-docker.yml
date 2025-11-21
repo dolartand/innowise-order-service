@@ -23,8 +23,42 @@ spring:
     default-schema: public
     liquibase-schema: public
 
+user:
+  service:
+    url: http://user-service:8080
+
+service:
+  api:
+    key: ${SERVICE_API_KEY:service-key}
+
+feign:
+  circuitbreaker:
+    enabled: true
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 10000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+  timelimiter:
+    instances:
+      user-service:
+        timeoutDuration: 3s
+
 server:
-  port: ${SERVER_PORT:8083}
+  port: ${SERVER_PORT:8080}
   error:
     include-message: always
     include-binding-errors: never
@@ -33,7 +67,7 @@ server:
 logging:
   level:
     root: INFO
-    com.innowise.orderservice: INFO
+    com.innowise.order-service: INFO
     org.springframework.web: WARN
 
 management:
@@ -42,6 +76,9 @@ management:
       exposure:
         include: health,info,metrics
       base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
   health:
     livenessState:
       enabled: true

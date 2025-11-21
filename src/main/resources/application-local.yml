@@ -24,6 +24,40 @@ spring:
     default-schema: public
     liquibase-schema: public
 
+user:
+  service:
+    url: http://localhost:8080
+
+service:
+  api:
+    key: dev-service-key
+
+feign:
+  circuitbreaker:
+    enabled: true
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 10000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+  timelimiter:
+    instances:
+      user-service:
+        timeoutDuration: 3s
+
 server:
   port: ${SERVER_PORT:8083}
   error:
@@ -33,7 +67,7 @@ server:
 logging:
   level:
     root: INFO
-    com.innowise.orderservice: DEBUG
+    com.innowise.order-service: DEBUG
     org.springframework.web: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
