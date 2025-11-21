@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: order-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:orderdb}
+    username: ${DB_USER:user}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    default-schema: public
+    liquibase-schema: public
+
+server:
+  port: ${SERVER_PORT:8083}
+  error:
+    include-message: always
+    include-binding-errors: never
+  shutdown: graceful
+
+logging:
+  level:
+    root: INFO
+    com.innowise.orderservice: INFO
+    org.springframework.web: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
