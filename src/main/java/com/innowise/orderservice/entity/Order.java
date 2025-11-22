@@ -7,6 +7,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,10 @@ public class Order {
     @Column(name = "status", nullable = false)
     @Builder.Default
     private OrderStatus orderStatus = OrderStatus.PENDING;
+
+    @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal totalPrice = BigDecimal.ZERO;
 
     @Column(name = "deleted", nullable = false)
     @Builder.Default
