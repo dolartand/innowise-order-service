@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,11 +23,12 @@ public class ItemController {
     private final ItemService itemService;
 
     /**
-     * Create new item
+     * Create new item (only ADMIN)
      * @param itemRequestDto item data
      * @return created item
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ItemResponseDto> createItem(@Valid @RequestBody ItemRequestDto itemRequestDto) {
         ItemResponseDto createdItem = itemService.createItem(itemRequestDto);
         return ResponseEntity
@@ -35,7 +37,7 @@ public class ItemController {
     }
 
     /**
-     * Get item by id
+     * Get item by id (anyone)
      * @param id item id
      * @return item data
      */
@@ -46,7 +48,7 @@ public class ItemController {
     }
 
     /**
-     * Get all items with pagination
+     * Get all items with pagination (anyone)
      * @param pageable pagination parameters
      * @return page of items
      */
@@ -59,7 +61,7 @@ public class ItemController {
     }
 
     /**
-     * Search items by name
+     * Search items by name (anyone)
      * @param name item name
      * @return list of matching items
      */
@@ -72,12 +74,13 @@ public class ItemController {
     }
 
     /**
-     * Update item
+     * Update item (only ADMIN)
      * @param id item id
      * @param itemRequestDto new item data
      * @return updated item data
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ItemResponseDto> updateItem(
             @PathVariable(name = "id") Long id,
             @Valid @RequestBody ItemRequestDto itemRequestDto
@@ -87,11 +90,12 @@ public class ItemController {
     }
 
     /**
-     * Delete item
+     * Delete item (only ADMIN)
      * @param id item id
      * @return 204 NO CONTENT
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteItem(@PathVariable(name = "id") Long id) {
         itemService.deleteItem(id);
         return ResponseEntity.noContent().build();
