@@ -21,10 +21,10 @@ import java.util.List;
 public interface OrderMapper {
 
     @Mapping(target = "user", source = "userInfo")
-    @Mapping(target = "items", source = "order.orderItems")
+    @Mapping(target = "items", source = "order.items")
     OrderResponseDto orderToDto(Order order, UserInfoDto userInfoDto);
 
-    @Mapping(target = "total", expression = "java(calculateSubtotal(orderItem)")
+    @Mapping(target = "total", expression = "java(calculateSubtotal(orderItem))")
     OrderItemResponseDto toOrderItemDto(OrderItem item);
 
     List<OrderItemResponseDto> toOrderItemDtos(List<OrderItem> orderItems);

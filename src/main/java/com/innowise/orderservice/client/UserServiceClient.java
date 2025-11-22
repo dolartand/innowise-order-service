@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
         name = "user-service",
         url = "${user.service.url}",
         configuration = FeignConfig.class,
-        fallback = UserServiceClientFallback.class
+        fallbackFactory = UserServiceClientFallbackFactory.class
 )
 public interface UserServiceClient {
 

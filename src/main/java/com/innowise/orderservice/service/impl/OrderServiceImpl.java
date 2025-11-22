@@ -210,7 +210,7 @@ public class OrderServiceImpl implements OrderService {
 
     private void removeOrderItem(Order order, OrderItem orderItem) {
         order.getItems().remove(orderItem);
-        orderItem.setOrder(order);
+        orderItem.setOrder(null);
     }
 
     private void clearOrderItems(Order order) {
