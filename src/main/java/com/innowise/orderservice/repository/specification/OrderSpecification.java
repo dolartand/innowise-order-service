@@ -32,7 +32,7 @@ public class OrderSpecification {
             if (orderStatus == null) {
                 return criteriaBuilder.conjunction();
             }
-            return criteriaBuilder.equal(root.get("status"), orderStatus);
+            return criteriaBuilder.equal(root.get("orderStatus"), orderStatus);
         });
     }
 
@@ -41,7 +41,7 @@ public class OrderSpecification {
             if (orderStatuses == null || orderStatuses.isEmpty()) {
                 return criteriaBuilder.conjunction();
             }
-            return root.get("status").in(orderStatuses);
+            return root.get("orderStatus").in(orderStatuses);
         });
     }
 
@@ -50,7 +50,7 @@ public class OrderSpecification {
             if (from == null) {
                 return criteriaBuilder.conjunction();
             }
-            return criteriaBuilder.greaterThanOrEqualTo(root.get("created"), from);
+            return criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from);
         });
     }
 
@@ -59,7 +59,7 @@ public class OrderSpecification {
             if (to == null) {
                 return criteriaBuilder.conjunction();
             }
-            return criteriaBuilder.lessThanOrEqualTo(root.get("created"), to);
+            return criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), to);
         });
     }
 
@@ -70,13 +70,13 @@ public class OrderSpecification {
             }
 
             if (from == null) {
-                return criteriaBuilder.lessThanOrEqualTo(root.get("created"), to);
+                return criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), to);
             }
 
             if (to == null) {
-                return criteriaBuilder.greaterThanOrEqualTo(root.get("created"), from);
+                return criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from);
             }
-            return  criteriaBuilder.between(root.get("created"), from, to);
+            return  criteriaBuilder.between(root.get("createdAt"), from, to);
         });
     }
 }

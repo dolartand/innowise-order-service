@@ -26,7 +26,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     Page<Order> findByDeletedFalse(Pageable pageable);
 
     @Modifying
-    @Query("UPDATE Order o SET o.deleted = :status WHERE o.id = :orderId AND o.deleted = false")
+    @Query("UPDATE Order o SET o.orderStatus = :status WHERE o.id = :orderId AND o.deleted = false")
     int updateStatus(@Param("orderId") Long orderId, @Param("status") OrderStatus status);
 
     @Modifying

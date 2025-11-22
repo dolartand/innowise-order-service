@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Slf4j
-public class UserServiceClientFallback implements FallbackFactory<UserServiceClient> {
+public class UserServiceClientFallbackFactory implements FallbackFactory<UserServiceClient> {
 
     @Override
     public  UserServiceClient create(Throwable throwable) {
