@@ -13,6 +13,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PostAuthorize;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -26,7 +28,7 @@ public class OrderController {
     private final OrderService orderService;
 
     /**
-     * Create new order
+     * Create new order (only authenticated)
      * @param orderRequestDto order data with items
      * @return created order with user info
      */
@@ -38,7 +40,13 @@ public class OrderController {
                 .body(createdOrder);
     }
 
+    /**
+     * Get order by id (only ADMIN or owner of order)
+     * @param id order id
+     * @return order with user info
+     */
     @GetMapping("/{id}")
+    @PostAuthorize("hasRole('ADMIN') or returnObject.body.userId == authentication.principal")
     public ResponseEntity<OrderResponseDto> getOrderById(@PathVariable(name = "id") Long id){
         OrderResponseDto order = orderService.getOrderById(id);
         return ResponseEntity.ok(order);
@@ -53,6 +61,7 @@ public class OrderController {
      * @return page of orders with user info
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<OrderResponseDto>> getAllOrders(
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -74,12 +83,13 @@ public class OrderController {
     }
 
     /**
-     * Get orders by user id
+     * Get orders by user id (only ADMIN or owner of orders)
      * @param userId user id
      * @param pageable pagination parameters
      * @return page of user`s orders with user info
      */
     @GetMapping("/user/{userId}")
+    @PreAuthorize("hasRole('ADMIN') or #userId == authentication.principal")
     public ResponseEntity<Page<OrderResponseDto>> getOrdersByUserId(
             @PathVariable(name = "userId") Long userId,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable
@@ -95,6 +105,7 @@ public class OrderController {
      * @return update order with user info
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OrderResponseDto> updateOrder(
             @PathVariable(name = "id") Long id,
             @Valid @RequestBody OrderUpdateDto order
@@ -110,6 +121,7 @@ public class OrderController {
      * @return updated order with user info
      */
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OrderResponseDto> updateOrderStatus(
             @PathVariable(name = "id") Long id,
             @RequestParam OrderStatus status
@@ -124,6 +136,7 @@ public class OrderController {
      * @return 204 NO CONTENT
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteOrder(@PathVariable(name = "id") Long id) {
         orderService.deleteOrder(id);
         return ResponseEntity.noContent().build();
