@@ -24,7 +24,7 @@ public class UserServiceClientFallbackFactory implements FallbackFactory<UserSer
                         .name("Unavailable")
                         .surname("Unavailable")
                         .email("Unavailable@unavailable.com")
-                        .active(false)
+                        .active(true)
                         .build();
             }
         };

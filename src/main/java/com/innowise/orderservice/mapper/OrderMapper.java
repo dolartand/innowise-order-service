@@ -20,12 +20,16 @@ import java.util.List;
 )
 public interface OrderMapper {
 
-    @Mapping(target = "user", source = "userInfo")
+    @Mapping(target = "id", source = "order.id")
+    @Mapping(target = "createdAt", source = "order.createdAt")
+    @Mapping(target = "updatedAt", source = "order.updatedAt")
+    @Mapping(target = "status", source = "order.orderStatus")
+    @Mapping(target = "user", source = "userInfoDto")
     @Mapping(target = "items", source = "order.items")
     OrderResponseDto orderToDto(Order order, UserInfoDto userInfoDto);
 
     @Mapping(target = "total", expression = "java(calculateSubtotal(orderItem))")
-    OrderItemResponseDto toOrderItemDto(OrderItem item);
+    OrderItemResponseDto toOrderItemDto(OrderItem orderItem);
 
     List<OrderItemResponseDto> toOrderItemDtos(List<OrderItem> orderItems);
 

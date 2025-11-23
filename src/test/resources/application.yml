@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: order-service-test
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+
+jwt:
+  secret: test-secret-key-for-testing-purposes-only-minimum-256-bits
+
+service:
+  api:
+    key: test-service-key
+
+server:
+  port: 0
+
+logging:
+  level:
+    root: INFO
+    com.innowise.order-service: DEBUG
