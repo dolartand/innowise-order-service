@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.concurrent.TimeUnit;
 
@@ -32,6 +34,15 @@ public class FeignConfig {
             requestTemplate.header("X-Service-Key", apiKey);
             requestTemplate.header("X-Service-Name", "order-service");
             requestTemplate.header("Content-Type", "application/json");
+
+            var attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                String authorizationHeader = attributes.getRequest().getHeader("Authorization");
+
+                if (authorizationHeader != null) {
+                    requestTemplate.header("Authorization", authorizationHeader);
+                }
+            }
 
             log.debug("Feign request to: {} {}",
                     requestTemplate.method(), requestTemplate.url());
