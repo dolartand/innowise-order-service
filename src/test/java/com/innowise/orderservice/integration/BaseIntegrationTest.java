@@ -2,22 +2,15 @@ package com.innowise.orderservice.integration;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(webEnvironment =  SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
 public class BaseIntegrationTest {
 
-    @Container
     protected static final PostgreSQLContainer<?> postgreSQLContainer =
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
                     .withDatabaseName("testdb")
@@ -28,15 +21,10 @@ public class BaseIntegrationTest {
     protected static final WireMockServer wireMockServer;
 
     static {
+        postgreSQLContainer.start();
+
         wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
         wireMockServer.start();
-    }
-
-    @AfterAll
-    static void stopWireMockServer() {
-        if (wireMockServer != null && wireMockServer.isRunning()) {
-            wireMockServer.stop();
-        }
     }
 
     @DynamicPropertySource
