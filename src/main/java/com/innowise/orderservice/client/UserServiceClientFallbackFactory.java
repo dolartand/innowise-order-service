@@ -16,14 +16,14 @@ public class UserServiceClientFallbackFactory implements FallbackFactory<UserSer
     public  UserServiceClient create(Throwable throwable) {
         return new UserServiceClient() {
             @Override
-            public UserInfoDto getUserById(Long id) {
-                log.error("Fallback for getUserById({}): {}", id,  throwable.getMessage());
+            public UserInfoDto getUserByEmail(String email) {
+                log.error("Fallback for getUserByEmail({}): {}", email,  throwable.getMessage());
 
                 return UserInfoDto.builder()
-                        .id(id)
+                        .id(0L)
                         .name("Unavailable")
                         .surname("Unavailable")
-                        .email("Unavailable@unavailable.com")
+                        .email(email)
                         .active(true)
                         .build();
             }
