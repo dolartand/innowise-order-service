@@ -1,6 +1,6 @@
 package com.innowise.orderservice.config;
 
-import com.innowise.orderservice.security.JwtAuthenticationFilter;
+import com.innowise.orderservice.security.HeaderAuthenticationFilter;
 import com.innowise.orderservice.security.SecurityKeyFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -20,7 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final HeaderAuthenticationFilter headerAuthenticationFilter;
     private final SecurityKeyFilter securityKeyFilter;
 
     @Bean
@@ -35,8 +35,8 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(securityKeyFilter, JwtAuthenticationFilter.class);
+                .addFilterBefore(headerAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(securityKeyFilter, HeaderAuthenticationFilter.class);
 
         return http.build();
     }

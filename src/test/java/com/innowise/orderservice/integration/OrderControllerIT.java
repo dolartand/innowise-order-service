@@ -11,29 +11,24 @@ import com.innowise.orderservice.entity.Order;
 import com.innowise.orderservice.enums.OrderStatus;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import jakarta.persistence.EntityManager;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.crypto.SecretKey;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
 import java.util.List;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -59,12 +54,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
     @Autowired
     private EntityManager entityManager;
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
-
-    @Value("${service.api.key}")
-    private String serviceApiKey;
-
     @BeforeEach
     void setUp() {
         orderRepository.deleteAll();
@@ -80,7 +69,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
         @DisplayName("should successfully create order")
         void shouldCreateOrder_Success() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
-            String userToken = generateToken(1L, "user@example.com", "USER");
 
             stubUserServiceGetUserById(1L, true);
 
@@ -91,8 +79,10 @@ public class OrderControllerIT extends BaseIntegrationTest {
                     .build();
 
             MvcResult result = mockMvc.perform(post("/api/v1/orders")
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isCreated())
@@ -126,7 +116,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
         @DisplayName("should return 400 when user is inactive")
         void shouldReturn400_WhenUserInactive() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
-            String userToken = generateToken(1L, "user@example.com", "USER");
 
             stubUserServiceGetUserById(1L, false);
 
@@ -137,8 +126,10 @@ public class OrderControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(post("/api/v1/orders")
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isBadRequest())
@@ -148,8 +139,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return 404 when item doesn't exist")
         void shouldReturn404_WhenItemDoesntExist() throws Exception {
-            String userToken = generateToken(1L, "user@example.com", "USER");
-
             stubUserServiceGetUserById(1L, true);
 
             OrderItemRequestDto itemDto = new OrderItemRequestDto(999L, 2);
@@ -159,8 +148,10 @@ public class OrderControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(post("/api/v1/orders")
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isNotFound())
@@ -170,16 +161,16 @@ public class OrderControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return 400 when validation fails")
         void shouldReturn400_WhenValidationFails() throws Exception {
-            String userToken = generateToken(1L, "user@example.com", "USER");
-
             OrderRequestDto requestDto = OrderRequestDto.builder()
                     .userId(null)
                     .items(List.of())
                     .build();
 
             mockMvc.perform(post("/api/v1/orders")
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isBadRequest())
@@ -191,7 +182,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
         @DisplayName("should handle user service unavailable")
         void shouldHandleUserServiceUnavailable() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
-            String userToken = generateToken(1L, "user@example.com", "USER");
 
             wireMockServer.stubFor(WireMock.get(urlEqualTo("/api/v1/users/1"))
                     .willReturn(aResponse()
@@ -205,8 +195,10 @@ public class OrderControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(post("/api/v1/orders")
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isCreated())
@@ -223,13 +215,14 @@ public class OrderControllerIT extends BaseIntegrationTest {
         void shouldGetOrderById_WhenAuthenticatedAsOwner() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
             Order order = createAndSaveOrder(1L, item, 2);
-            String userToken = generateToken(1L, "user@example.com", "USER");
 
             stubUserServiceGetUserById(1L, true);
 
             mockMvc.perform(get("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(order.getId()))
                     .andExpect(jsonPath("$.userId").value(1))
@@ -242,13 +235,14 @@ public class OrderControllerIT extends BaseIntegrationTest {
         void shouldGetOrderById_WhenAuthenticatedAsAdmin() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
             Order order = createAndSaveOrder(1L, item, 2);
-            String adminToken = generateToken(2L, "admin@example.com", "ADMIN");
 
             stubUserServiceGetUserById(1L, true);
 
             mockMvc.perform(get("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "2")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(order.getId()));
         }
@@ -258,24 +252,25 @@ public class OrderControllerIT extends BaseIntegrationTest {
         void shouldReturn403_WhenUserTriesToAccessAnotherUsersOrder() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
             Order order = createAndSaveOrder(1L, item, 2);
-            String userToken = generateToken(2L, "another@example.com", "USER");
 
             stubUserServiceGetUserById(1L, true);
 
             mockMvc.perform(get("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "2")
+                            .header("X-User-Email", "another@example.com")
+                            .header("X-User-Role", "USER"))
                     .andExpect(status().isForbidden());
         }
 
         @Test
         @DisplayName("should return 404 when order doesn't exist")
         void shouldReturn404_WhenOrderDoesntExist() throws Exception {
-            String userToken = generateToken(1L, "user@example.com", "USER");
-
             mockMvc.perform(get("/api/v1/orders/{id}", 999L)
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value(Matchers.containsString("Order not found")));
         }
@@ -293,15 +288,15 @@ public class OrderControllerIT extends BaseIntegrationTest {
             createAndSaveOrder(2L, item, 1);
             createAndSaveOrder(3L, item, 3);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             stubUserServiceGetUserById(1L, true);
             stubUserServiceGetUserById(2L, true);
             stubUserServiceGetUserById(3L, true);
 
             mockMvc.perform(get("/api/v1/orders")
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .param("page", "0")
                             .param("size", "2"))
                     .andExpect(status().isOk())
@@ -314,11 +309,11 @@ public class OrderControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return 403 when regular user tries to get all orders")
         void shouldReturn403_WhenRegularUserTriesToGetAllOrders() throws Exception {
-            String userToken = generateToken(1L, "user@example.com", "USER");
-
             mockMvc.perform(get("/api/v1/orders")
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER"))
                     .andExpect(status().isForbidden());
         }
 
@@ -334,13 +329,13 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order2.setOrderStatus(OrderStatus.PROCESSING);
             orderRepository.save(order2);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             stubUserServiceGetUserById(1L, true);
 
             mockMvc.perform(get("/api/v1/orders")
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .param("statuses", "PENDING"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content.length()").value(1))
@@ -359,13 +354,13 @@ public class OrderControllerIT extends BaseIntegrationTest {
             createAndSaveOrder(1L, item, 2);
             createAndSaveOrder(1L, item, 1);
 
-            String userToken = generateToken(1L, "user@example.com", "USER");
-
             stubUserServiceGetUserById(1L, true);
 
             mockMvc.perform(get("/api/v1/orders/user/{userId}", 1L)
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content").isArray())
                     .andExpect(jsonPath("$.content.length()").value(2))
@@ -379,13 +374,13 @@ public class OrderControllerIT extends BaseIntegrationTest {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
             createAndSaveOrder(1L, item, 2);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             stubUserServiceGetUserById(1L, true);
 
             mockMvc.perform(get("/api/v1/orders/user/{userId}", 1L)
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content.length()").value(1));
         }
@@ -396,11 +391,11 @@ public class OrderControllerIT extends BaseIntegrationTest {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
             createAndSaveOrder(1L, item, 2);
 
-            String userToken = generateToken(2L, "another@example.com", "USER");
-
             mockMvc.perform(get("/api/v1/orders/user/{userId}", 1L)
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "2")
+                            .header("X-User-Email", "another@example.com")
+                            .header("X-User-Role", "USER"))
                     .andExpect(status().isForbidden());
         }
     }
@@ -416,8 +411,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
             Item item2 = createAndSaveItem("Mouse", new BigDecimal("25.00"));
             Order order = createAndSaveOrder(1L, item1, 2);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             stubUserServiceGetUserById(1L, true);
 
             OrderItemRequestDto newItemDto = new OrderItemRequestDto(item2.getId(), 3);
@@ -427,8 +420,10 @@ public class OrderControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(put("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(updateDto)))
                     .andExpect(status().isOk())
@@ -448,16 +443,16 @@ public class OrderControllerIT extends BaseIntegrationTest {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
             Order order = createAndSaveOrder(1L, item, 2);
 
-            String userToken = generateToken(1L, "user@example.com", "USER");
-
             OrderUpdateDto updateDto = OrderUpdateDto.builder()
                     .status(OrderStatus.PROCESSING)
                     .items(List.of(new OrderItemRequestDto(item.getId(), 1)))
                     .build();
 
             mockMvc.perform(put("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(updateDto)))
                     .andExpect(status().isForbidden());
@@ -471,16 +466,16 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order.setOrderStatus(OrderStatus.DELIVERED);
             orderRepository.save(order);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             OrderUpdateDto updateDto = OrderUpdateDto.builder()
                     .status(OrderStatus.PROCESSING)
                     .items(List.of(new OrderItemRequestDto(item.getId(), 1)))
                     .build();
 
             mockMvc.perform(put("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(updateDto)))
                     .andExpect(status().isBadRequest())
@@ -490,17 +485,16 @@ public class OrderControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return 404 when order doesn't exist")
         void shouldReturn404_WhenOrderDoesntExist() throws Exception {
-            Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             OrderUpdateDto updateDto = OrderUpdateDto.builder()
                     .status(OrderStatus.PROCESSING)
-                    .items(List.of(new OrderItemRequestDto(item.getId(), 1)))
+                    .items(List.of(new OrderItemRequestDto(1L, 1)))
                     .build();
 
             mockMvc.perform(put("/api/v1/orders/{id}", 999L)
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(updateDto)))
                     .andExpect(status().isNotFound());
@@ -519,13 +513,13 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order.setOrderStatus(OrderStatus.PENDING);
             orderRepository.save(order);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             stubUserServiceGetUserById(1L, true);
 
             mockMvc.perform(patch("/api/v1/orders/{id}/status", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .param("status", "PROCESSING"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(order.getId()))
@@ -543,13 +537,13 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order.setOrderStatus(OrderStatus.PROCESSING);
             orderRepository.save(order);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             stubUserServiceGetUserById(1L, true);
 
             mockMvc.perform(patch("/api/v1/orders/{id}/status", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .param("status", "SHIPPED"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("SHIPPED"));
@@ -563,13 +557,13 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order.setOrderStatus(OrderStatus.SHIPPED);
             orderRepository.save(order);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             stubUserServiceGetUserById(1L, true);
 
             mockMvc.perform(patch("/api/v1/orders/{id}/status", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .param("status", "DELIVERED"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("DELIVERED"));
@@ -583,11 +577,11 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order.setOrderStatus(OrderStatus.PENDING);
             orderRepository.save(order);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             mockMvc.perform(patch("/api/v1/orders/{id}/status", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .param("status", "DELIVERED"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value(Matchers.containsString("Invalid status transition")));
@@ -601,11 +595,11 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order.setOrderStatus(OrderStatus.DELIVERED);
             orderRepository.save(order);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             mockMvc.perform(patch("/api/v1/orders/{id}/status", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .param("status", "PROCESSING"))
                     .andExpect(status().isBadRequest());
         }
@@ -616,11 +610,11 @@ public class OrderControllerIT extends BaseIntegrationTest {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
             Order order = createAndSaveOrder(1L, item, 2);
 
-            String userToken = generateToken(1L, "user@example.com", "USER");
-
             mockMvc.perform(patch("/api/v1/orders/{id}/status", order.getId())
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER")
                             .param("status", "PROCESSING"))
                     .andExpect(status().isForbidden());
         }
@@ -638,11 +632,11 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order.setOrderStatus(OrderStatus.PENDING);
             orderRepository.save(order);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             mockMvc.perform(delete("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN"))
                     .andExpect(status().isNoContent());
 
             entityManager.flush();
@@ -660,11 +654,11 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order.setOrderStatus(OrderStatus.CANCELLED);
             orderRepository.save(order);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             mockMvc.perform(delete("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN"))
                     .andExpect(status().isNoContent());
         }
 
@@ -676,11 +670,11 @@ public class OrderControllerIT extends BaseIntegrationTest {
             order.setOrderStatus(OrderStatus.PROCESSING);
             orderRepository.save(order);
 
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             mockMvc.perform(delete("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value(Matchers.containsString("Cannot delete order")));
         }
@@ -691,38 +685,24 @@ public class OrderControllerIT extends BaseIntegrationTest {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
             Order order = createAndSaveOrder(1L, item, 2);
 
-            String userToken = generateToken(1L, "user@example.com", "USER");
-
             mockMvc.perform(delete("/api/v1/orders/{id}", order.getId())
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER"))
                     .andExpect(status().isForbidden());
         }
 
         @Test
         @DisplayName("should return 404 when order doesn't exist")
         void shouldReturn404_WhenOrderDoesntExist() throws Exception {
-            String adminToken = generateToken(999L, "admin@example.com", "ADMIN");
-
             mockMvc.perform(delete("/api/v1/orders/{id}", 999L)
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "999")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN"))
                     .andExpect(status().isNotFound());
         }
-    }
-
-    private String generateToken(Long userId, String email, String role) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-        long expirationTime = 1000 * 60 * 60;
-
-        return Jwts.builder()
-                .claim("userId", userId)
-                .claim("email", email)
-                .claim("role", role)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expirationTime))
-                .signWith(key)
-                .compact();
     }
 
     private Item createAndSaveItem(String name, BigDecimal price) {
