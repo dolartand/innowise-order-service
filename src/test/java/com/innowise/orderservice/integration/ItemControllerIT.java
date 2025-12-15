@@ -5,24 +5,18 @@ import com.innowise.orderservice.dto.item.ItemRequestDto;
 import com.innowise.orderservice.dto.item.ItemResponseDto;
 import com.innowise.orderservice.entity.Item;
 import com.innowise.orderservice.repository.ItemRepository;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.hamcrest.Matchers;
 
-import javax.crypto.SecretKey;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -42,12 +36,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
     @Autowired
     private ItemRepository itemRepository;
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
-
-    @Value("${service.api.key}")
-    private String serviceApiKey;
-
     @BeforeEach
     void setUp() {
         itemRepository.deleteAll();
@@ -59,16 +47,16 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should successfully create item when authenticated as admin")
         void shouldCreateItem_WhenAuthenticatedAsAdmin() throws Exception {
-            String adminToken = generateToken(1L, "admin@example.com", "ADMIN");
-
             ItemRequestDto requestDto = ItemRequestDto.builder()
                     .name("Laptop")
                     .price(new BigDecimal("1500.00"))
                     .build();
 
             MvcResult result = mockMvc.perform(post("/api/v1/items")
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isCreated())
@@ -91,16 +79,16 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return 403 when user tries to create item")
         void shouldReturn403_WhenUserTriesToCreateItem() throws Exception {
-            String userToken = generateToken(2L, "user@example.com", "USER");
-
             ItemRequestDto requestDto = ItemRequestDto.builder()
                     .name("Laptop")
                     .price(new BigDecimal("1500.00"))
                     .build();
 
             mockMvc.perform(post("/api/v1/items")
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "2")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isForbidden());
@@ -109,16 +97,16 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return 400 when invalid data")
         void shouldReturn400_WhenInvalidData() throws Exception {
-            String adminToken = generateToken(1L, "admin@example.com", "ADMIN");
-
             ItemRequestDto requestDto = ItemRequestDto.builder()
                     .name("L") // Too short name
                     .price(new BigDecimal("-100.00")) // Negative price
                     .build();
 
             mockMvc.perform(post("/api/v1/items")
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isBadRequest())
@@ -131,16 +119,16 @@ public class ItemControllerIT extends BaseIntegrationTest {
         void shouldReturn409_WhenItemNameExists() throws Exception {
             createAndSaveItem("Laptop", new BigDecimal("1500.00"));
 
-            String adminToken = generateToken(1L, "admin@example.com", "ADMIN");
-
             ItemRequestDto requestDto = ItemRequestDto.builder()
                     .name("Laptop")
                     .price(new BigDecimal("2000.00"))
                     .build();
 
             mockMvc.perform(post("/api/v1/items")
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isConflict())
@@ -150,15 +138,15 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return 403 when no service key provided")
         void shouldReturn403_WhenNoServiceKey() throws Exception {
-            String adminToken = generateToken(1L, "admin@example.com", "ADMIN");
-
             ItemRequestDto requestDto = ItemRequestDto.builder()
                     .name("Laptop")
                     .price(new BigDecimal("1500.00"))
                     .build();
 
             mockMvc.perform(post("/api/v1/items")
-                            .header("Authorization", "Bearer " + adminToken)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isForbidden());
@@ -175,7 +163,7 @@ public class ItemControllerIT extends BaseIntegrationTest {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
 
             mockMvc.perform(get("/api/v1/items/{id}", item.getId())
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(item.getId()))
                     .andExpect(jsonPath("$.name").value("Laptop"))
@@ -186,7 +174,7 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @DisplayName("should return 404 when item doesn't exist")
         void shouldReturn404_WhenItemDoesntExist() throws Exception {
             mockMvc.perform(get("/api/v1/items/{id}", 999L)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value(Matchers.containsString("Item")));
         }
@@ -204,7 +192,7 @@ public class ItemControllerIT extends BaseIntegrationTest {
             createAndSaveItem("Keyboard", new BigDecimal("75.00"));
 
             mockMvc.perform(get("/api/v1/items")
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .param("page", "0")
                             .param("size", "2"))
                     .andExpect(status().isOk())
@@ -218,7 +206,7 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @DisplayName("should return empty page when no items exist")
         void shouldReturnEmptyPage_WhenNoItems() throws Exception {
             mockMvc.perform(get("/api/v1/items")
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content").isEmpty())
                     .andExpect(jsonPath("$.totalElements").value(0));
@@ -237,7 +225,7 @@ public class ItemControllerIT extends BaseIntegrationTest {
             createAndSaveItem("Mouse", new BigDecimal("25.00"));
 
             mockMvc.perform(get("/api/v1/items/search")
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .param("name", "Laptop"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$").isArray())
@@ -252,7 +240,7 @@ public class ItemControllerIT extends BaseIntegrationTest {
             createAndSaveItem("Laptop", new BigDecimal("1500.00"));
 
             mockMvc.perform(get("/api/v1/items/search")
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .param("name", "Phone"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$").isArray())
@@ -268,7 +256,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @DisplayName("should successfully update item when authenticated as admin")
         void shouldUpdateItem_WhenAuthenticatedAsAdmin() throws Exception {
             Item existingItem = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
-            String adminToken = generateToken(1L, "admin@example.com", "ADMIN");
 
             ItemRequestDto updateDto = ItemRequestDto.builder()
                     .name("Laptop ASUS")
@@ -276,9 +263,10 @@ public class ItemControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(put("/api/v1/items/{id}", existingItem.getId())
-                            // ИСПРАВЛЕНО: добавлен пробел после Bearer
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(updateDto)))
                     .andExpect(status().isOk())
@@ -295,7 +283,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @DisplayName("should return 403 when user tries to update item")
         void shouldReturn403_WhenRegularUserTriesToUpdate() throws Exception {
             Item existingItem = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
-            String userToken = generateToken(2L, "user@example.com", "USER");
 
             ItemRequestDto updateDto = ItemRequestDto.builder()
                     .name("Laptop Pro")
@@ -303,9 +290,10 @@ public class ItemControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(put("/api/v1/items/{id}", existingItem.getId())
-                            // ИСПРАВЛЕНО: добавлен пробел после Bearer
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "2")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(updateDto)))
                     .andExpect(status().isForbidden());
@@ -314,17 +302,16 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return 404 when item doesnt exist")
         void shouldReturn404_WhenItemDoesntExist() throws Exception {
-            String adminToken = generateToken(1L, "admin@example.com", "ADMIN");
-
             ItemRequestDto updateDto = ItemRequestDto.builder()
                     .name("Laptop Pro")
                     .price(new BigDecimal("2500.00"))
                     .build();
 
             mockMvc.perform(put("/api/v1/items/{id}", 999L)
-                            // ИСПРАВЛЕНО: добавлен пробел после Bearer
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey)
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(updateDto)))
                     .andExpect(status().isNotFound());
@@ -339,12 +326,12 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @DisplayName("should successfully delete item when authenticated as admin")
         void shouldDeleteItem_WhenAuthenticatedAsAdmin() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
-            String adminToken = generateToken(1L, "admin@example.com", "ADMIN");
 
             mockMvc.perform(delete("/api/v1/items/{id}", item.getId())
-                            // ИСПРАВЛЕНО: добавлен пробел после Bearer
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN"))
                     .andExpect(status().isNoContent());
 
             assertThat(itemRepository.findById(item.getId())).isEmpty();
@@ -354,40 +341,25 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @DisplayName("should return 403 when regular user tries to delete item")
         void shouldReturn403_WhenRegularUserTriesToDelete() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
-            String userToken = generateToken(2L, "user@example.com", "USER");
 
             mockMvc.perform(delete("/api/v1/items/{id}", item.getId())
-                            // ИСПРАВЛЕНО: добавлен пробел после Bearer
-                            .header("Authorization", "Bearer " + userToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "2")
+                            .header("X-User-Email", "user@example.com")
+                            .header("X-User-Role", "USER"))
                     .andExpect(status().isForbidden());
         }
 
         @Test
         @DisplayName("should return 404 when item doesn't exist")
         void shouldReturn404_WhenItemDoesntExist() throws Exception {
-            String adminToken = generateToken(1L, "admin@example.com", "ADMIN");
-
             mockMvc.perform(delete("/api/v1/items/{id}", 999L)
-                            // ИСПРАВЛЕНО: добавлен пробел после Bearer
-                            .header("Authorization", "Bearer " + adminToken)
-                            .header("X-Service-Key", serviceApiKey))
+                            .header("X-Service-Key", TEST_SERVICE_KEY)
+                            .header("X-User-Id", "1")
+                            .header("X-User-Email", "admin@example.com")
+                            .header("X-User-Role", "ADMIN"))
                     .andExpect(status().isNotFound());
         }
-    }
-
-    private String generateToken(Long userId, String email, String role) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-        long expirationTime = 1000 * 60 * 60;
-
-        return Jwts.builder()
-                .claim("userId", userId)
-                .claim("email", email)
-                .claim("role", role)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expirationTime))
-                .signWith(key)
-                .compact();
     }
 
     private Item createAndSaveItem(String name, BigDecimal price) {
