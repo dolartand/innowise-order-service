@@ -17,6 +17,7 @@ import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import com.innowise.orderservice.repository.specification.OrderSpecification;
 import com.innowise.orderservice.service.OrderService;
+import com.innowise.orderservice.util.OrderCalculationHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -138,7 +139,7 @@ public class OrderServiceImpl implements OrderService {
             order.setOrderStatus(updateDto.status());
         }
 
-        if (updateDto.items() != null && !updateDto.items().isEmpty()) {
+        if (updateDto.items() != null) {
             clearOrderItems(order);
 
             for (OrderItemRequestDto itemDto : updateDto.items()) {
@@ -218,10 +219,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void calculateTotalPrice(Order order) {
-        BigDecimal totalPrice = order.getItems().stream()
-                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
+        BigDecimal totalPrice = OrderCalculationHelper.calculateOrderTotal(order);
         order.setTotalPrice(totalPrice);
     }
 

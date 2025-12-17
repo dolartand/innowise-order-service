@@ -5,8 +5,10 @@ import com.innowise.orderservice.client.dto.UserInfoDto;
 import com.innowise.orderservice.dto.order.OrderItemRequestDto;
 import com.innowise.orderservice.dto.order.OrderRequestDto;
 import com.innowise.orderservice.dto.order.OrderResponseDto;
+import com.innowise.orderservice.dto.order.OrderUpdateDto;
 import com.innowise.orderservice.entity.Item;
 import com.innowise.orderservice.entity.Order;
+import com.innowise.orderservice.entity.OrderItem;
 import com.innowise.orderservice.enums.OrderStatus;
 import com.innowise.orderservice.exception.InvalidOrderStateException;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
@@ -17,9 +19,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -51,6 +59,338 @@ class OrderServiceImplTest {
 
     @InjectMocks
     private OrderServiceImpl orderService;
+
+    @Nested
+    @DisplayName("getAllOrders tests")
+    class GetAllOrdersTests {
+
+        @Test
+        @DisplayName("should filter orders by multiple statuses")
+        void shouldFilterOrdersByMultipleStatuses() {
+            List<OrderStatus> statuses = List.of(OrderStatus.PENDING, OrderStatus.PROCESSING);
+            Pageable pageable = PageRequest.of(0, 10);
+
+            Order pendingOrder = createOrder(1L, 1L);
+            pendingOrder.setOrderStatus(OrderStatus.PENDING);
+            Order processingOrder = createOrder(2L, 1L);
+            processingOrder.setOrderStatus(OrderStatus.PROCESSING);
+
+            List<Order> orders = List.of(pendingOrder, processingOrder);
+            Page<Order> orderPage = new PageImpl<>(orders, pageable, 2);
+
+            when(orderRepository.findAll(any(Specification.class), eq(pageable)))
+                    .thenReturn(orderPage);
+            when(userServiceClient.getUserById(anyLong()))
+                    .thenReturn(createUserInfoDto(true));
+            when(orderMapper.orderToDto(any(Order.class), any(UserInfoDto.class)))
+                    .thenAnswer(invocation -> {
+                        Order order = invocation.getArgument(0);
+                        return createOrderResponseDto(order.getId());
+                    });
+
+            Page<OrderResponseDto> result = orderService.getAllOrders(
+                    null, null, statuses, pageable
+            );
+
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("should return empty page when no orders match filters")
+        void shouldReturnEmptyPageWhenNoOrdersMatchFilters() {
+            LocalDateTime dateFrom = LocalDateTime.now().plusYears(1);
+            LocalDateTime dateTo = LocalDateTime.now().plusYears(2);
+            Pageable pageable = PageRequest.of(0, 10);
+
+            Page<Order> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+            when(orderRepository.findAll(any(Specification.class), eq(pageable)))
+                    .thenReturn(emptyPage);
+
+            Page<OrderResponseDto> result = orderService.getAllOrders(
+                    dateFrom, dateTo, null, pageable
+            );
+
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+        }
+
+        @Test
+        @DisplayName("should handle pagination correctly")
+        void shouldHandlePaginationCorrectly() {
+            Pageable pageable = PageRequest.of(1, 2);
+
+            Order order3 = createOrder(3L, 1L);
+            Order order4 = createOrder(4L, 1L);
+            List<Order> orders = List.of(order3, order4);
+            Page<Order> orderPage = new PageImpl<>(orders, pageable, 10);
+
+            when(orderRepository.findAll(any(Specification.class), eq(pageable)))
+                    .thenReturn(orderPage);
+            when(userServiceClient.getUserById(anyLong()))
+                    .thenReturn(createUserInfoDto(true));
+            when(orderMapper.orderToDto(any(Order.class), any(UserInfoDto.class)))
+                    .thenAnswer(invocation -> {
+                        Order order = invocation.getArgument(0);
+                        return createOrderResponseDto(order.getId());
+                    });
+
+            Page<OrderResponseDto> result = orderService.getAllOrders(
+                    null, null, null, pageable
+            );
+
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getTotalElements()).isEqualTo(10);
+            assertThat(result.getTotalPages()).isEqualTo(5);
+            assertThat(result.getNumber()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("getOrdersByUserId tests")
+    class GetOrdersByUserIdTests {
+        @Test
+        @DisplayName("should return all orders for user with multiple orders")
+        void shouldReturnAllOrdersForUserWithMultipleOrders() {
+            Long userId = 1L;
+            Pageable pageable = PageRequest.of(0, 10);
+
+            Order order1 = createOrder(1L, userId);
+            Order order2 = createOrder(2L, userId);
+            Order order3 = createOrder(3L, userId);
+            List<Order> orders = List.of(order1, order2, order3);
+            Page<Order> orderPage = new PageImpl<>(orders, pageable, 3);
+
+            when(orderRepository.findByUserIdAndDeletedFalse(userId, pageable))
+                    .thenReturn(orderPage);
+            when(userServiceClient.getUserById(userId))
+                    .thenReturn(createUserInfoDto(true));
+            when(orderMapper.orderToDto(any(Order.class), any(UserInfoDto.class)))
+                    .thenAnswer(invocation -> {
+                        Order order = invocation.getArgument(0);
+                        return createOrderResponseDto(order.getId());
+                    });
+
+            Page<OrderResponseDto> result = orderService.getOrdersByUserId(userId, pageable);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(3);
+            verify(orderRepository).findByUserIdAndDeletedFalse(userId, pageable);
+            verify(userServiceClient, times(1)).getUserById(userId);
+        }
+
+        @Test
+        @DisplayName("should return empty page when user has no orders")
+        void shouldReturnEmptyPageWhenUserHasNoOrders() {
+            Long userId = 999L;
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<Order> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+            when(orderRepository.findByUserIdAndDeletedFalse(userId, pageable))
+                    .thenReturn(emptyPage);
+            when(userServiceClient.getUserById(userId))
+                    .thenReturn(createUserInfoDto(true));
+
+            Page<OrderResponseDto> result = orderService.getOrdersByUserId(userId, pageable);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("updateOrder tests")
+    class UpdateOrderTests {
+
+        @Test
+        @DisplayName("should recalculate totalPrice when items are updated")
+        void shouldRecalculateTotalPriceWhenItemsUpdated() {
+            Long orderId = 1L;
+            Order existingOrder = createOrder(orderId, 1L);
+            existingOrder.setTotalPrice(new BigDecimal("1500.00"));
+
+            Item newItem = createItem(2L);
+            OrderItemRequestDto newItemDto = new OrderItemRequestDto(2L, 3);
+            OrderUpdateDto updateDto = OrderUpdateDto.builder()
+                    .items(List.of(newItemDto))
+                    .build();
+
+            when(orderRepository.findByIdAndDeletedFalse(orderId))
+                    .thenReturn(Optional.of(existingOrder));
+            when(itemRepository.findById(2L))
+                    .thenReturn(Optional.of(newItem));
+            when(orderRepository.save(existingOrder))
+                    .thenReturn(existingOrder);
+            when(userServiceClient.getUserById(1L))
+                    .thenReturn(createUserInfoDto(true));
+            when(orderMapper.orderToDto(any(Order.class), any(UserInfoDto.class)))
+                    .thenReturn(createOrderResponseDto(orderId));
+
+            orderService.updateOrder(orderId, updateDto);
+
+            ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+            verify(orderRepository).save(orderCaptor.capture());
+
+            Order savedOrder = orderCaptor.getValue();
+            assertThat(savedOrder.getTotalPrice())
+                    .isEqualByComparingTo(new BigDecimal("4500.00"));
+        }
+
+        @Test
+        @DisplayName("should handle multiple items with correct total calculation")
+        void shouldHandleMultipleItemsWithCorrectTotal() {
+            Long orderId = 1L;
+            Order existingOrder = createOrder(orderId, 1L);
+
+            Item item1 = createItem(1L, "Laptop", new BigDecimal("1500.00"));
+            Item item2 = createItem(2L, "Mouse", new BigDecimal("25.00"));
+            Item item3 = createItem(3L, "Keyboard", new BigDecimal("75.00"));
+
+            OrderItemRequestDto itemDto1 = new OrderItemRequestDto(1L, 2);
+            OrderItemRequestDto itemDto2 = new OrderItemRequestDto(2L, 3);
+            OrderItemRequestDto itemDto3 = new OrderItemRequestDto(3L, 1);
+
+            OrderUpdateDto updateDto = OrderUpdateDto.builder()
+                    .items(List.of(itemDto1, itemDto2, itemDto3))
+                    .build();
+
+            when(orderRepository.findByIdAndDeletedFalse(orderId))
+                    .thenReturn(Optional.of(existingOrder));
+            when(itemRepository.findById(1L)).thenReturn(Optional.of(item1));
+            when(itemRepository.findById(2L)).thenReturn(Optional.of(item2));
+            when(itemRepository.findById(3L)).thenReturn(Optional.of(item3));
+            when(orderRepository.save(existingOrder)).thenReturn(existingOrder);
+            when(userServiceClient.getUserById(1L)).thenReturn(createUserInfoDto(true));
+            when(orderMapper.orderToDto(any(Order.class), any(UserInfoDto.class)))
+                    .thenReturn(createOrderResponseDto(orderId));
+
+            orderService.updateOrder(orderId, updateDto);
+
+            ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+            verify(orderRepository).save(orderCaptor.capture());
+
+            Order savedOrder = orderCaptor.getValue();
+            assertThat(savedOrder.getTotalPrice())
+                    .isEqualByComparingTo(new BigDecimal("3150.00"));
+        }
+
+        @Test
+        @DisplayName("should set totalPrice to zero when all items removed")
+        void shouldSetTotalPriceToZeroWhenAllItemsRemoved() {
+            Long orderId = 1L;
+            Order existingOrder = createOrder(orderId, 1L);
+            existingOrder.setTotalPrice(new BigDecimal("1500.00"));
+
+            OrderItem existingItem = OrderItem.builder()
+                    .id(1L)
+                    .order(existingOrder)
+                    .item(createItem(1L, "Laptop", new BigDecimal("1500.00")))
+                    .quantity(1)
+                    .price(new BigDecimal("1500.00"))
+                    .build();
+            existingOrder.getItems().add(existingItem);
+
+            OrderUpdateDto updateDto = OrderUpdateDto.builder()
+                    .items(List.of())
+                    .build();
+
+            when(orderRepository.findByIdAndDeletedFalse(orderId))
+                    .thenReturn(Optional.of(existingOrder));
+            when(orderRepository.save(existingOrder)).thenReturn(existingOrder);
+            when(userServiceClient.getUserById(1L)).thenReturn(createUserInfoDto(true));
+            when(orderMapper.orderToDto(any(Order.class), any(UserInfoDto.class)))
+                    .thenReturn(createOrderResponseDto(orderId));
+
+            orderService.updateOrder(orderId, updateDto);
+
+            ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+            verify(orderRepository).save(orderCaptor.capture());
+
+            Order savedOrder = orderCaptor.getValue();
+            assertThat(savedOrder.getTotalPrice())
+                    .isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(savedOrder.getItems()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should update both status and items successfully")
+        void shouldUpdateBothStatusAndItemsSuccessfully() {
+            Long orderId = 1L;
+            Order existingOrder = createOrder(orderId, 1L);
+            existingOrder.setOrderStatus(OrderStatus.PENDING);
+
+            Item newItem = createItem(1L, "Laptop", new BigDecimal("1500.00"));
+            OrderItemRequestDto itemDto = new OrderItemRequestDto(1L, 1);
+
+            OrderUpdateDto updateDto = OrderUpdateDto.builder()
+                    .status(OrderStatus.PROCESSING)
+                    .items(List.of(itemDto))
+                    .build();
+
+            when(orderRepository.findByIdAndDeletedFalse(orderId))
+                    .thenReturn(Optional.of(existingOrder));
+            when(itemRepository.findById(1L)).thenReturn(Optional.of(newItem));
+            when(orderRepository.save(existingOrder)).thenReturn(existingOrder);
+            when(userServiceClient.getUserById(1L)).thenReturn(createUserInfoDto(true));
+            when(orderMapper.orderToDto(any(Order.class), any(UserInfoDto.class)))
+                    .thenReturn(createOrderResponseDto(orderId));
+
+            orderService.updateOrder(orderId, updateDto);
+
+            ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+            verify(orderRepository).save(orderCaptor.capture());
+
+            Order savedOrder = orderCaptor.getValue();
+            assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.PROCESSING);
+            assertThat(savedOrder.getItems()).hasSize(1);
+            assertThat(savedOrder.getTotalPrice())
+                    .isEqualByComparingTo(new BigDecimal("1500.00"));
+        }
+
+        @Test
+        @DisplayName("should update only status when items not provided")
+        void shouldUpdateOnlyStatusWhenItemsNotProvided() {
+            Long orderId = 1L;
+            Order existingOrder = createOrder(orderId, 1L);
+            existingOrder.setOrderStatus(OrderStatus.PENDING);
+
+            OrderItem existingItem = OrderItem.builder()
+                    .id(1L)
+                    .order(existingOrder)
+                    .item(createItem(1L, "Laptop", new BigDecimal("1500.00")))
+                    .quantity(1)
+                    .price(new BigDecimal("1500.00"))
+                    .build();
+            existingOrder.getItems().add(existingItem);
+            existingOrder.setTotalPrice(new BigDecimal("1500.00"));
+
+            OrderUpdateDto updateDto = OrderUpdateDto.builder()
+                    .status(OrderStatus.PROCESSING)
+                    .items(null)
+                    .build();
+
+            when(orderRepository.findByIdAndDeletedFalse(orderId))
+                    .thenReturn(Optional.of(existingOrder));
+            when(orderRepository.save(existingOrder)).thenReturn(existingOrder);
+            when(userServiceClient.getUserById(1L)).thenReturn(createUserInfoDto(true));
+            when(orderMapper.orderToDto(any(Order.class), any(UserInfoDto.class)))
+                    .thenReturn(createOrderResponseDto(orderId));
+
+            orderService.updateOrder(orderId, updateDto);
+
+            ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+            verify(orderRepository).save(orderCaptor.capture());
+
+            Order savedOrder = orderCaptor.getValue();
+            assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.PROCESSING);
+            assertThat(savedOrder.getItems()).hasSize(1);
+            assertThat(savedOrder.getTotalPrice())
+                    .isEqualByComparingTo(new BigDecimal("1500.00"));
+        }
+    }
 
     @Nested
     @DisplayName("createOrder tests")
@@ -260,6 +600,16 @@ class OrderServiceImplTest {
                 .id(id)
                 .name("Laptop")
                 .price(new BigDecimal("1500.00"))
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
+
+    private Item createItem(Long id, String name, BigDecimal price) {
+        return Item.builder()
+                .id(id)
+                .name(name)
+                .price(price)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
