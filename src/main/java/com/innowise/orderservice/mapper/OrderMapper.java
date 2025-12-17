@@ -3,9 +3,9 @@ package com.innowise.orderservice.mapper;
 import com.innowise.orderservice.client.dto.UserInfoDto;
 import com.innowise.orderservice.dto.order.OrderItemResponseDto;
 import com.innowise.orderservice.dto.order.OrderResponseDto;
-import com.innowise.orderservice.entity.Item;
 import com.innowise.orderservice.entity.Order;
 import com.innowise.orderservice.entity.OrderItem;
+import com.innowise.orderservice.util.OrderCalculationHelper;
 import org.mapstruct.InjectionStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -34,9 +34,6 @@ public interface OrderMapper {
     List<OrderItemResponseDto> toOrderItemDtos(List<OrderItem> orderItems);
 
     default BigDecimal calculateSubtotal(OrderItem orderItem) {
-        if (orderItem == null || orderItem.getPrice() == null) {
-            return BigDecimal.ZERO;
-        }
-        return orderItem.getPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity()));
+        return OrderCalculationHelper.calculateItemSubtotal(orderItem);
     }
 }
