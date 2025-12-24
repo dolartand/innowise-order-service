@@ -43,16 +43,16 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponseDto createOrder(OrderRequestDto requestDto) {
-        log.info("Creating order for user with id: {}", requestDto.userId());
+    public OrderResponseDto createOrder(OrderRequestDto requestDto, Long userId) {
+        log.info("Creating order for user with id: {}", userId);
 
-        UserInfoDto userInfoDto = userServiceClient.getUserById(requestDto.userId());
+        UserInfoDto userInfoDto = userServiceClient.getUserById(userId);
         if (!userInfoDto.active()) {
             throw new InvalidOrderStateException("Cannot create order for inactive user");
         }
 
         Order order = Order.builder()
-                .userId(requestDto.userId())
+                .userId(userId)
                 .orderStatus(OrderStatus.PENDING)
                 .items(new ArrayList<>())
                 .build();
@@ -73,7 +73,7 @@ public class OrderServiceImpl implements OrderService {
         calculateTotalPrice(order);
 
         Order savedOrder = orderRepository.save(order);
-        log.info("Created order for user with id: {}", requestDto.userId());
+        log.info("Created order for user with id: {}", userId);
 
         return orderMapper.orderToDto(savedOrder, userInfoDto);
     }
