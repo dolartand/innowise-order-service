@@ -8,6 +8,7 @@ import com.innowise.orderservice.dto.order.OrderResponseDto;
 import com.innowise.orderservice.dto.order.OrderUpdateDto;
 import com.innowise.orderservice.entity.Item;
 import com.innowise.orderservice.entity.Order;
+import com.innowise.orderservice.entity.OrderItem;
 import com.innowise.orderservice.enums.OrderStatus;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
@@ -74,7 +75,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
 
             OrderItemRequestDto itemDto = new OrderItemRequestDto(item.getId(), 2);
             OrderRequestDto requestDto = OrderRequestDto.builder()
-                    .userId(1L)
                     .items(List.of(itemDto))
                     .build();
 
@@ -109,7 +109,7 @@ public class OrderControllerIT extends BaseIntegrationTest {
             assertThat(orderInDb.getTotalPrice()).isEqualByComparingTo(new BigDecimal("3000.00"));
             assertThat(orderInDb.getItems()).hasSize(1);
 
-            wireMockServer.verify(WireMock.getRequestedFor(urlEqualTo("/api/v1/users/1")));
+            wireMockServer.verify(WireMock.getRequestedFor(urlEqualTo("/internal/users/1")));
         }
 
         @Test
@@ -121,7 +121,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
 
             OrderItemRequestDto itemDto = new OrderItemRequestDto(item.getId(), 2);
             OrderRequestDto requestDto = OrderRequestDto.builder()
-                    .userId(1L)
                     .items(List.of(itemDto))
                     .build();
 
@@ -143,7 +142,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
 
             OrderItemRequestDto itemDto = new OrderItemRequestDto(999L, 2);
             OrderRequestDto requestDto = OrderRequestDto.builder()
-                    .userId(1L)
                     .items(List.of(itemDto))
                     .build();
 
@@ -162,7 +160,6 @@ public class OrderControllerIT extends BaseIntegrationTest {
         @DisplayName("should return 400 when validation fails")
         void shouldReturn400_WhenValidationFails() throws Exception {
             OrderRequestDto requestDto = OrderRequestDto.builder()
-                    .userId(null)
                     .items(List.of())
                     .build();
 
@@ -183,14 +180,13 @@ public class OrderControllerIT extends BaseIntegrationTest {
         void shouldHandleUserServiceUnavailable() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
 
-            wireMockServer.stubFor(WireMock.get(urlEqualTo("/api/v1/users/1"))
+            wireMockServer.stubFor(WireMock.get(urlEqualTo("/internal/users/1"))
                     .willReturn(aResponse()
                             .withStatus(500)
                             .withHeader("Content-Type", "application/json")));
 
             OrderItemRequestDto itemDto = new OrderItemRequestDto(item.getId(), 2);
             OrderRequestDto requestDto = OrderRequestDto.builder()
-                    .userId(1L)
                     .items(List.of(itemDto))
                     .build();
 
@@ -723,7 +719,7 @@ public class OrderControllerIT extends BaseIntegrationTest {
 
         Order savedOrder = orderRepository.save(order);
 
-        com.innowise.orderservice.entity.OrderItem orderItem =
+        OrderItem orderItem =
                 com.innowise.orderservice.entity.OrderItem.builder()
                         .order(savedOrder)
                         .item(item)
@@ -750,7 +746,7 @@ public class OrderControllerIT extends BaseIntegrationTest {
                 }
                 """, userId, active);
 
-        wireMockServer.stubFor(WireMock.get(urlEqualTo("/api/v1/users/" + userId))
+        wireMockServer.stubFor(WireMock.get(urlEqualTo("/internal/users/" + userId))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")

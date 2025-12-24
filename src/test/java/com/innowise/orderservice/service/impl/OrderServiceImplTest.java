@@ -399,23 +399,24 @@ class OrderServiceImplTest {
         @Test
         @DisplayName("should successfully create order")
         void shouldCreateOrder_Success() {
+            Long userId = 1L;
             OrderRequestDto requestDto = createOrderRequestDto();
             UserInfoDto userInfo = createUserInfoDto(true);
             Item item = createItem(1L);
             Order savedOrder = createOrder(1L, 1L);
             OrderResponseDto expected = createOrderResponseDto(1L);
 
-            when(userServiceClient.getUserById(requestDto.userId())).thenReturn(userInfo);
+            when(userServiceClient.getUserById(userId)).thenReturn(userInfo);
             when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
             when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
             when(orderMapper.orderToDto(savedOrder, userInfo)).thenReturn(expected);
 
-            OrderResponseDto result = orderService.createOrder(requestDto);
+            OrderResponseDto result = orderService.createOrder(requestDto, userId);
 
             assertThat(result).isNotNull();
             assertThat(result.id()).isEqualTo(1L);
 
-            verify(userServiceClient, times(1)).getUserById(requestDto.userId());
+            verify(userServiceClient, times(1)).getUserById(userId);
             verify(itemRepository, times(1)).findById(1L);
             verify(orderRepository, times(1)).save(any(Order.class));
         }
@@ -423,16 +424,17 @@ class OrderServiceImplTest {
         @Test
         @DisplayName("should throw InvalidOrderStateException when user is inactive")
         void shouldThrowInvalidOrderStateException_WhenUserInactive() {
+            Long userId = 1L;
             OrderRequestDto requestDto = createOrderRequestDto();
             UserInfoDto userInfo = createUserInfoDto(false);
 
-            when(userServiceClient.getUserById(requestDto.userId())).thenReturn(userInfo);
+            when(userServiceClient.getUserById(userId)).thenReturn(userInfo);
 
-            assertThatThrownBy(() -> orderService.createOrder(requestDto))
+            assertThatThrownBy(() -> orderService.createOrder(requestDto, userId))
                     .isInstanceOf(InvalidOrderStateException.class)
                     .hasMessageContaining("inactive user");
 
-            verify(userServiceClient, times(1)).getUserById(requestDto.userId());
+            verify(userServiceClient, times(1)).getUserById(userId);
             verify(itemRepository, never()).findById(any());
             verify(orderRepository, never()).save(any());
         }
@@ -440,13 +442,14 @@ class OrderServiceImplTest {
         @Test
         @DisplayName("should throw ResourceNotFoundException when item not found")
         void shouldThrowResourceNotFoundException_WhenItemNotFound() {
+            Long userId = 1L;
             OrderRequestDto requestDto = createOrderRequestDto();
             UserInfoDto userInfo = createUserInfoDto(true);
 
-            when(userServiceClient.getUserById(requestDto.userId())).thenReturn(userInfo);
+            when(userServiceClient.getUserById(userId)).thenReturn(userInfo);
             when(itemRepository.findById(1L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> orderService.createOrder(requestDto))
+            assertThatThrownBy(() -> orderService.createOrder(requestDto, userId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Item not found");
 
@@ -577,7 +580,6 @@ class OrderServiceImplTest {
     private OrderRequestDto createOrderRequestDto() {
         OrderItemRequestDto itemDto = new OrderItemRequestDto(1L, 2);
         return OrderRequestDto.builder()
-                .userId(1L)
                 .items(List.of(itemDto))
                 .build();
     }

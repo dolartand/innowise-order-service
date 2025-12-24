@@ -15,6 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -33,8 +35,10 @@ public class OrderController {
      * @return created order with user info
      */
     @PostMapping
-    public ResponseEntity<OrderResponseDto> createOrder(@Valid @RequestBody OrderRequestDto orderRequestDto) {
-        OrderResponseDto createdOrder = orderService.createOrder(orderRequestDto);
+    public ResponseEntity<OrderResponseDto> createOrder(
+            @Valid @RequestBody OrderRequestDto orderRequestDto,
+            @AuthenticationPrincipal Long userId) {
+        OrderResponseDto createdOrder = orderService.createOrder(orderRequestDto, userId);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(createdOrder);
