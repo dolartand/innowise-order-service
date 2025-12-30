@@ -2,16 +2,14 @@ package com.innowise.orderservice.service.impl;
 
 import com.innowise.orderservice.client.UserServiceClient;
 import com.innowise.orderservice.client.dto.UserInfoDto;
-import com.innowise.orderservice.dto.order.OrderItemRequestDto;
-import com.innowise.orderservice.dto.order.OrderRequestDto;
-import com.innowise.orderservice.dto.order.OrderResponseDto;
-import com.innowise.orderservice.dto.order.OrderUpdateDto;
+import com.innowise.orderservice.dto.order.*;
 import com.innowise.orderservice.entity.Item;
 import com.innowise.orderservice.entity.Order;
 import com.innowise.orderservice.entity.OrderItem;
 import com.innowise.orderservice.enums.OrderStatus;
 import com.innowise.orderservice.exception.InvalidOrderStateException;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
+import com.innowise.orderservice.kafka.producer.OrderEventProducer;
 import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
@@ -40,6 +38,7 @@ public class OrderServiceImpl implements OrderService {
     private final ItemRepository itemRepository;
     private final OrderMapper orderMapper;
     private final UserServiceClient userServiceClient;
+    private final OrderEventProducer orderEventProducer;
 
     @Override
     @Transactional
@@ -74,6 +73,21 @@ public class OrderServiceImpl implements OrderService {
 
         Order savedOrder = orderRepository.save(order);
         log.info("Created order for user with id: {}", userId);
+
+        OrderCreatedEventDto orderEvent = OrderCreatedEventDto.builder()
+                .orderId(savedOrder.getId())
+                .userId(savedOrder.getUserId())
+                .totalAmount(savedOrder.getTotalPrice())
+                .eventType("ORDER_CREATED")
+                .build();
+
+        try {
+            orderEventProducer.sendOrderCreatedEvent(orderEvent);
+            log.info("ORDER_CREATED event sent for orderId={}", savedOrder.getId());
+        } catch (Exception e) {
+            log.error("Failed to send ORDER_CREATED event for orderId={}: {}",
+                    savedOrder.getId(), e.getMessage(), e);
+        }
 
         return orderMapper.orderToDto(savedOrder, userInfoDto);
     }
