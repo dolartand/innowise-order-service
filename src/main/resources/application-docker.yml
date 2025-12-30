@@ -18,9 +18,9 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
     consumer:
-      group-id: order-service-group
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:order-service-group}
       auto-offset-reset: earliest
       enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -41,8 +41,8 @@ spring:
 
 kafka:
   topics:
-    order-events: order-events
-    payment-events: payment-events
+    order-events: ${KAFKA_TOPIC_ORDER_EVENTS:order-events}
+    payment-events: ${KAFKA_TOPIC_PAYMENT_EVENTS:payment-events}
 
 user:
   service:
