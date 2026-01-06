@@ -1,7 +1,6 @@
 package com.innowise.orderservice.kafka.producer;
 
 import com.innowise.orderservice.dto.order.OrderCreatedEventDto;
-import com.innowise.orderservice.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,6 +9,7 @@ import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Component
 @Slf4j
@@ -31,20 +31,16 @@ public class OrderEventProducer {
             CompletableFuture<SendResult<String, OrderCreatedEventDto>> future =
                     kafkaTemplate.send(orderEventsTopic, key, event);
 
-            future.whenComplete((r, e) -> {
-                if (e != null) {
-                    log.error("Failed to send ORDER_CREATED event for orderId={}: {}",
-                            event.orderId(), e.getMessage() ,e);
-                } else {
-                    log.info("ORDER_CREATED event sent successfully: orderId={}, partition={}, offset={}",
-                            event.orderId(),
-                            r.getRecordMetadata().partition(),
-                            r.getRecordMetadata().offset());
-                }
-            });
+            SendResult<String, OrderCreatedEventDto> result = future.get(10, TimeUnit.SECONDS);
+
+            log.info("ORDER_CREATED event sent successfully: orderId={}, partition={}, offset={}",
+                    event.orderId(),
+                    result.getRecordMetadata().partition(),
+                    result.getRecordMetadata().offset());
         } catch (Exception e) {
-            log.error("Error sending ORDER_CREATED event for orderId={}: {}", event.orderId(), e.getMessage(), e);
-            throw new RuntimeException("Failed to send order event", e);
+            log.error("Failed to send ORDER_CREATED event for orderId={}: {}",
+                  event.orderId(), e.getMessage(), e);
+            throw new RuntimeException("Failed to send order event to Kafka", e);
         }
     }
 }
