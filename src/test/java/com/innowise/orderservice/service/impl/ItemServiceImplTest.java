@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -98,7 +99,7 @@ public class ItemServiceImplTest {
             Item item = createItem(itemId);
             ItemResponseDto expected = createItemResponseDto(itemId);
 
-            when(itemRepository.findById(itemId)).thenReturn(Optional.of(item));
+            when(itemRepository.findByIdAndDeletedFalse(itemId)).thenReturn(Optional.of(item));
             when(itemMapper.toDto(item)).thenReturn(expected);
 
             ItemResponseDto result = itemService.getItemById(itemId);
@@ -106,7 +107,7 @@ public class ItemServiceImplTest {
             assertThat(result).isNotNull();
             assertThat(result.id()).isEqualTo(itemId);
 
-            verify(itemRepository, times(1)).findById(itemId);
+            verify(itemRepository, times(1)).findByIdAndDeletedFalse(itemId);
             verify(itemMapper, times(1)).toDto(item);
         }
 
@@ -115,7 +116,7 @@ public class ItemServiceImplTest {
         void shouldThrowResourceNotFoundException_WhenItemNotFound() {
             Long itemId = 999L;
 
-            when(itemRepository.findById(itemId)).thenReturn(Optional.empty());
+            when(itemRepository.findByIdAndDeletedFalse(itemId)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> itemService.getItemById(itemId))
                     .isInstanceOf(ResourceNotFoundException.class)
@@ -139,7 +140,7 @@ public class ItemServiceImplTest {
             ItemResponseDto dto1 = createItemResponseDto(1L);
             ItemResponseDto dto2 = createItemResponseDto(2L);
 
-            when(itemRepository.findAll(pageable)).thenReturn(itemsPage);
+            when(itemRepository.findByDeletedFalse(pageable)).thenReturn(itemsPage);
             when(itemMapper.toDto(item1)).thenReturn(dto1);
             when(itemMapper.toDto(item2)).thenReturn(dto2);
 
@@ -149,7 +150,7 @@ public class ItemServiceImplTest {
             assertThat(result.getContent()).hasSize(2);
             assertThat(result.getTotalElements()).isEqualTo(2);
 
-            verify(itemRepository, times(1)).findAll(pageable);
+            verify(itemRepository, times(1)).findByDeletedFalse(pageable);
             verify(itemMapper, times(2)).toDto(any(Item.class));
         }
     }
@@ -164,21 +165,22 @@ public class ItemServiceImplTest {
             String searchName = "Laptop";
             Item item1 = createItem(1L);
             Item item2 = createItem(2L);
-            List<Item> items = List.of(item1, item2);
+            List<Item> itemsList = Arrays.asList(item1, item2);
+            Page<Item> itemsPage = new PageImpl<>(itemsList);
 
             ItemResponseDto dto1 = createItemResponseDto(1L);
             ItemResponseDto dto2 = createItemResponseDto(2L);
 
-            when(itemRepository.findByNameContainingIgnoreCase(searchName)).thenReturn(items);
-            when(itemMapper.toDtoList(items)).thenReturn(List.of(dto1, dto2));
+            when(itemRepository.findByNameContainingIgnoreCaseAndDeletedFalse(eq(searchName), any(Pageable.class))).thenReturn(itemsPage);
+            when(itemMapper.toDtoList(itemsList)).thenReturn(List.of(dto1, dto2));
 
             List<ItemResponseDto> result = itemService.searchItemsByName(searchName);
 
             assertThat(result).isNotNull();
             assertThat(result).hasSize(2);
 
-            verify(itemRepository, times(1)).findByNameContainingIgnoreCase(searchName);
-            verify(itemMapper, times(1)).toDtoList(items);
+            verify(itemRepository, times(1)).findByNameContainingIgnoreCaseAndDeletedFalse(eq(searchName), any(Pageable.class));
+            verify(itemMapper, times(1)).toDtoList(itemsList);
         }
     }
 
@@ -200,7 +202,7 @@ public class ItemServiceImplTest {
             updatedItem.setName("Updated Laptop Name");
             ItemResponseDto expected = createItemResponseDto(itemId);
 
-            when(itemRepository.findById(itemId)).thenReturn(Optional.of(existingItem));
+            when(itemRepository.findByIdAndDeletedFalse(itemId)).thenReturn(Optional.of(existingItem));
             when(itemRepository.existsByName(requestDto.name())).thenReturn(false);
             when(itemRepository.save(existingItem)).thenReturn(updatedItem);
             when(itemMapper.toDto(updatedItem)).thenReturn(expected);
@@ -210,7 +212,7 @@ public class ItemServiceImplTest {
             assertThat(result).isNotNull();
             assertThat(result.id()).isEqualTo(itemId);
 
-            verify(itemRepository, times(1)).findById(itemId);
+            verify(itemRepository, times(1)).findByIdAndDeletedFalse(itemId);
             verify(itemMapper, times(1)).updateEntityFromDto(requestDto, existingItem);
             verify(itemRepository, times(1)).save(existingItem);
             verify(itemMapper, times(1)).toDto(updatedItem);
@@ -222,13 +224,13 @@ public class ItemServiceImplTest {
             Long itemId = 999L;
             ItemRequestDto requestDto = createItemRequestDto();
 
-            when(itemRepository.findById(itemId)).thenReturn(Optional.empty());
+            when(itemRepository.findByIdAndDeletedFalse(itemId)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> itemService.updateItem(itemId, requestDto))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Item");
 
-            verify(itemRepository, times(1)).findById(itemId);
+            verify(itemRepository, times(1)).findByIdAndDeletedFalse(itemId);
             verify(itemRepository, never()).save(any());
         }
 
@@ -242,7 +244,7 @@ public class ItemServiceImplTest {
                     .build();
             Item existingItem = createItem(itemId);
 
-            when(itemRepository.findById(itemId)).thenReturn(Optional.of(existingItem));
+            when(itemRepository.findByIdAndDeletedFalse(itemId)).thenReturn(Optional.of(existingItem));
             when(itemRepository.existsByName(requestDto.name())).thenReturn(true);
 
             assertThatThrownBy(() -> itemService.updateItem(itemId, requestDto))
@@ -261,13 +263,15 @@ public class ItemServiceImplTest {
         @DisplayName("should successfully delete item")
         void shouldDeleteItem_Success() {
             Long itemId = 1L;
+            Item item = createItem(itemId);
 
-            when(itemRepository.existsById(itemId)).thenReturn(true);
+            when(itemRepository.findByIdAndDeletedFalse(itemId)).thenReturn(Optional.of(item));
+            when(itemRepository.softDeleteById(itemId)).thenReturn(1);
 
             itemService.deleteItem(itemId);
 
-            verify(itemRepository, times(1)).existsById(itemId);
-            verify(itemRepository, times(1)).deleteById(itemId);
+            verify(itemRepository, times(1)).findByIdAndDeletedFalse(itemId);
+            verify(itemRepository, times(1)).softDeleteById(itemId);
         }
 
         @Test
@@ -275,14 +279,14 @@ public class ItemServiceImplTest {
         void shouldThrowResourceNotFoundException_WhenItemDoesntExist() {
             Long itemId = 999L;
 
-            when(itemRepository.existsById(itemId)).thenReturn(false);
+            when(itemRepository.findByIdAndDeletedFalse(itemId)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> itemService.deleteItem(itemId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Item");
 
-            verify(itemRepository, times(1)).existsById(itemId);
-            verify(itemRepository, never()).deleteById(any());
+            verify(itemRepository, times(1)).findByIdAndDeletedFalse(itemId);
+            verify(itemRepository, never()).softDeleteById(any());
         }
     }
 
