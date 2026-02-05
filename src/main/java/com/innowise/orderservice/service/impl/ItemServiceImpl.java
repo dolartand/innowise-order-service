@@ -11,6 +11,7 @@ import com.innowise.orderservice.service.ItemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +47,7 @@ public class ItemServiceImpl implements ItemService {
     public ItemResponseDto getItemById(Long id) {
         log.debug("Fetching item by id: {}", id);
 
-        Item item = itemRepository.findById(id)
+        Item item = itemRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ResourceNotFoundException(String.format("Item with id: %d", id)));
 
         return itemMapper.toDto(item);
@@ -55,10 +56,10 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(readOnly = true)
     public Page<ItemResponseDto> getAllItems(Pageable pageable) {
-        log.debug("Fetching all items");
+        log.debug("Getting all items with pagination: {}", pageable);
 
-        return itemRepository.findAll(pageable)
-                .map(itemMapper::toDto);
+        Page<Item> items = itemRepository.findByDeletedFalse(pageable);
+        return items.map(itemMapper::toDto);
     }
 
     @Override
@@ -66,8 +67,9 @@ public class ItemServiceImpl implements ItemService {
     public List<ItemResponseDto> searchItemsByName(String name) {
         log.debug("Searching items by name: {}", name);
 
-        List<Item> items = itemRepository.findByNameContainingIgnoreCase(name);
-        return itemMapper.toDtoList(items);
+        Pageable pageable = PageRequest.of(0, 100);
+        Page<Item> items = itemRepository.findByNameContainingIgnoreCaseAndDeletedFalse(name, pageable);
+        return itemMapper.toDtoList(items.getContent());
     }
 
     @Override
@@ -75,7 +77,7 @@ public class ItemServiceImpl implements ItemService {
     public ItemResponseDto updateItem(Long id, ItemRequestDto requestDto) {
         log.info("Updating item with id: {}", id);
 
-        Item item = itemRepository.findById(id)
+        Item item = itemRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ResourceNotFoundException(String.format("Item with id: %d", id)));
 
         if (!item.getName().equals(requestDto.name()) && itemRepository.existsByName(requestDto.name())) {
@@ -94,11 +96,10 @@ public class ItemServiceImpl implements ItemService {
     public void deleteItem(Long id) {
         log.info("Deleting item with id: {}", id);
 
-        if (!itemRepository.existsById(id)) {
-            throw new ResourceNotFoundException(String.format("Item with id: %d", id));
-        }
+        Item item = itemRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Item not found with id: " + id));
 
-        itemRepository.deleteById(id);
-        log.info("Item deleted successfully, id: {}", id);
+        itemRepository.softDeleteById(id);
+        log.info("Item soft deleted successfully, id: {}", id);
     }
 }
