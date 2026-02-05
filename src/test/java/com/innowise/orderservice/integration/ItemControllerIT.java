@@ -53,7 +53,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
                     .build();
 
             MvcResult result = mockMvc.perform(post("/api/v1/items")
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "1")
                             .header("X-User-Email", "admin@example.com")
                             .header("X-User-Role", "ADMIN")
@@ -85,7 +84,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(post("/api/v1/items")
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "2")
                             .header("X-User-Email", "user@example.com")
                             .header("X-User-Role", "USER")
@@ -103,7 +101,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(post("/api/v1/items")
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "1")
                             .header("X-User-Email", "admin@example.com")
                             .header("X-User-Role", "ADMIN")
@@ -125,7 +122,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(post("/api/v1/items")
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "1")
                             .header("X-User-Email", "admin@example.com")
                             .header("X-User-Role", "ADMIN")
@@ -133,23 +129,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.message").value(Matchers.containsString("already exists")));
-        }
-
-        @Test
-        @DisplayName("should return 403 when no service key provided")
-        void shouldReturn403_WhenNoServiceKey() throws Exception {
-            ItemRequestDto requestDto = ItemRequestDto.builder()
-                    .name("Laptop")
-                    .price(new BigDecimal("1500.00"))
-                    .build();
-
-            mockMvc.perform(post("/api/v1/items")
-                            .header("X-User-Id", "1")
-                            .header("X-User-Email", "admin@example.com")
-                            .header("X-User-Role", "ADMIN")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(requestDto)))
-                    .andExpect(status().isForbidden());
         }
     }
 
@@ -162,8 +141,7 @@ public class ItemControllerIT extends BaseIntegrationTest {
         void shouldGetItemById_WithoutAuthentication() throws Exception {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
 
-            mockMvc.perform(get("/api/v1/items/{id}", item.getId())
-                            .header("X-Service-Key", TEST_SERVICE_KEY))
+            mockMvc.perform(get("/api/v1/items/{id}", item.getId()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(item.getId()))
                     .andExpect(jsonPath("$.name").value("Laptop"))
@@ -173,8 +151,7 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return 404 when item doesn't exist")
         void shouldReturn404_WhenItemDoesntExist() throws Exception {
-            mockMvc.perform(get("/api/v1/items/{id}", 999L)
-                            .header("X-Service-Key", TEST_SERVICE_KEY))
+            mockMvc.perform(get("/api/v1/items/{id}", 999L))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value(Matchers.containsString("Item")));
         }
@@ -192,7 +169,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
             createAndSaveItem("Keyboard", new BigDecimal("75.00"));
 
             mockMvc.perform(get("/api/v1/items")
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .param("page", "0")
                             .param("size", "2"))
                     .andExpect(status().isOk())
@@ -205,8 +181,7 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @Test
         @DisplayName("should return empty page when no items exist")
         void shouldReturnEmptyPage_WhenNoItems() throws Exception {
-            mockMvc.perform(get("/api/v1/items")
-                            .header("X-Service-Key", TEST_SERVICE_KEY))
+            mockMvc.perform(get("/api/v1/items"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content").isEmpty())
                     .andExpect(jsonPath("$.totalElements").value(0));
@@ -225,7 +200,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
             createAndSaveItem("Mouse", new BigDecimal("25.00"));
 
             mockMvc.perform(get("/api/v1/items/search")
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .param("name", "Laptop"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$").isArray())
@@ -240,7 +214,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
             createAndSaveItem("Laptop", new BigDecimal("1500.00"));
 
             mockMvc.perform(get("/api/v1/items/search")
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .param("name", "Phone"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$").isArray())
@@ -263,7 +236,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(put("/api/v1/items/{id}", existingItem.getId())
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "1")
                             .header("X-User-Email", "admin@example.com")
                             .header("X-User-Role", "ADMIN")
@@ -290,7 +262,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(put("/api/v1/items/{id}", existingItem.getId())
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "2")
                             .header("X-User-Email", "user@example.com")
                             .header("X-User-Role", "USER")
@@ -308,7 +279,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
                     .build();
 
             mockMvc.perform(put("/api/v1/items/{id}", 999L)
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "1")
                             .header("X-User-Email", "admin@example.com")
                             .header("X-User-Role", "ADMIN")
@@ -328,13 +298,12 @@ public class ItemControllerIT extends BaseIntegrationTest {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
 
             mockMvc.perform(delete("/api/v1/items/{id}", item.getId())
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "1")
                             .header("X-User-Email", "admin@example.com")
                             .header("X-User-Role", "ADMIN"))
                     .andExpect(status().isNoContent());
 
-            assertThat(itemRepository.findById(item.getId())).isEmpty();
+            assertThat(itemRepository.findByIdAndDeletedFalse(item.getId())).isEmpty();
         }
 
         @Test
@@ -343,7 +312,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
             Item item = createAndSaveItem("Laptop", new BigDecimal("1500.00"));
 
             mockMvc.perform(delete("/api/v1/items/{id}", item.getId())
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "2")
                             .header("X-User-Email", "user@example.com")
                             .header("X-User-Role", "USER"))
@@ -354,7 +322,6 @@ public class ItemControllerIT extends BaseIntegrationTest {
         @DisplayName("should return 404 when item doesn't exist")
         void shouldReturn404_WhenItemDoesntExist() throws Exception {
             mockMvc.perform(delete("/api/v1/items/{id}", 999L)
-                            .header("X-Service-Key", TEST_SERVICE_KEY)
                             .header("X-User-Id", "1")
                             .header("X-User-Email", "admin@example.com")
                             .header("X-User-Role", "ADMIN"))
